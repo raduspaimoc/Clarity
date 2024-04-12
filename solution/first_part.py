@@ -1,11 +1,6 @@
 import datetime
-
-STANDARD_FORMAT_VALUES_IN_FILE = 3
-EMPTY_CONNECTION = "*EMPTY*"
-
-
-def timestamp_ms_to_sec(timestamp_ms) -> int:
-    return timestamp_ms / 1000
+from utils import timestamp_ms_to_sec
+from utils import STANDARD_FORMAT_VALUES_IN_FILE, EMPTY_CONNECTION
 
 
 def filter_connection(host: str,
@@ -54,14 +49,12 @@ def print_hosts_list(host: str, hosts: list):
         print(f"{host}")
 
 
-
-
 if __name__ == '__main__':
 
     file_path = '../datasets/input-file-10000.txt'
     init_datetime = datetime.datetime(year=2019, month=8, day=12) # In file: ('2019-08-12 22:00:04.351000')
     end_datetime = datetime.datetime(year=2019, month=8, day=14)  # In file: ('2019-08-13 21:59:58.341000')
-    host = 'Jameice'
+    host = 'Lynnsie'
 
     connected_hosts = read_log_file(file_path=file_path, host=host,
                                     init_datetime=init_datetime, end_datetime=end_datetime)
