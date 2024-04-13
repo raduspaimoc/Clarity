@@ -30,7 +30,7 @@ def generate_current_timestamp() -> int:
     return timestamp_ms
 
 
-def add_random_entries(file_path: str, num_entries_to_add: int):
+def add_random_entries(file_path: str, num_entries_to_add: int, destination_host: str = ''):
     # Read existing entries from the file
     hosts_set = read_existing_entries(file_path)
 
@@ -39,7 +39,8 @@ def add_random_entries(file_path: str, num_entries_to_add: int):
         for index in range(num_entries_to_add):
             current_timestamp = generate_current_timestamp()
             source_host = get_random_hostname(hosts_set)
-            destination_host = get_random_hostname(hosts_set - {source_host})
+            if destination_host == '':
+                destination_host = get_random_hostname(hosts_set - {source_host})
             entry = f"{current_timestamp} {source_host} {destination_host}\n"
             file.write(entry)
 
@@ -47,8 +48,9 @@ def add_random_entries(file_path: str, num_entries_to_add: int):
 if __name__ == '__main__':
     file_path = '../datasets/input-file-100002.txt'
     num_entries_to_add = 5  # Number of random entries to add
+    destination_host = 'Lynnsie'
 
     while True:
-        add_random_entries(file_path, num_entries_to_add)
+        add_random_entries(file_path, num_entries_to_add, destination_host=destination_host)
         print(f"Added {num_entries_to_add} random entries to {file_path}.")
         time.sleep(15)

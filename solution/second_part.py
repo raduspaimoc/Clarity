@@ -3,10 +3,8 @@ import time
 import sched
 import datetime
 import threading
-
 from collections import defaultdict
-from utils import timestamp_ms_to_sec
-from utils import STANDARD_FORMAT_VALUES_IN_FILE, EMPTY_CONNECTION
+from utils import timestamp_ms_to_sec, STANDARD_FORMAT_VALUES_IN_FILE
 
 SCHEDULER_SECONDS_DELAY = 30
 
@@ -17,8 +15,8 @@ outgoing_connections = defaultdict(set)
 connection_counts = defaultdict(int)
 
 
-# Function to parse a single log line
 def parse_log_line(line) -> tuple:
+    """Parse a single log line and extract connection information."""
     parts = line.strip().split()
     if len(parts) == STANDARD_FORMAT_VALUES_IN_FILE:
         timestamp, source_host, destination_host = parts
@@ -28,30 +26,36 @@ def parse_log_line(line) -> tuple:
     return None
 
 
-def add_connection_info(connection: tuple):
-    connection_time, source_host, destination_host = connection
-    hour_key = connection_time.strftime('%Y-%m-%d %H')
+def update_hourly_stats(connection: tuple):
+    """Update hourly statistics based on a new connection."""
+    if connection:
+        connection_time, source_host, destination_host = connection
+        current_time = datetime.datetime.now()
+        start_time = current_time - datetime.timedelta(hours=1)
+        if start_time <= connection_time <= current_time:
+            hour_key = connection_time.strftime('%Y-%m-%d %H')
 
-    # Update connections by hour
-    connections_by_hour[hour_key].append((connection_time, source_host, destination_host))
+            # Update connections by hour
+            connections_by_hour[hour_key].append((connection_time, source_host, destination_host))
 
-    # Update incoming and outgoing connections
-    incoming_connections[destination_host].add(source_host)
-    outgoing_connections[source_host].add(destination_host)
+            # Update incoming and outgoing connections
+            incoming_connections[destination_host].add(source_host)
+            outgoing_connections[source_host].add(destination_host)
 
-    # Update connection counts
-    connection_counts[source_host] += 1
+            # Update connection counts
+            connection_counts[source_host] += 1
+            connection_counts[destination_host] += 1
 
 
 def process_log_file(file_path: str):
-
+    """Process log file continuously, updating statistics for new connections."""
     with open(file_path, 'r') as file:
         for line in file:
             connection = parse_log_line(line)
             if connection:
-                add_connection_info(connection)
+                update_hourly_stats(connection)
 
-    # Move to the end of the file and waits for new data
+    # Monitor file for new data and update statistics in real-time
     with open(file_path, 'r') as file:
         file.seek(0, os.SEEK_END)
         while True:
@@ -59,44 +63,56 @@ def process_log_file(file_path: str):
             if line:
                 connection = parse_log_line(line)
                 if connection:
-                    add_connection_info(connection)
+                    update_hourly_stats(connection)
             else:
                 time.sleep(1)
 
 
-# Function to generate hourly summaries
-def generate_hourly_summary(configurable_host='Lynnsie', delay: int = SCHEDULER_SECONDS_DELAY):
-    current_hour = datetime.datetime.now().strftime('%Y-%m-%d %H')
-    prev_hour = (datetime.datetime.now() - datetime.timedelta(hours=1)).strftime('%Y-%m-%d %H')
+def update_hourly_summaries(scheduler, configurable_host='Lynnsie'):
+    """Update hourly summaries based on the last hour's data."""
+    current_time = datetime.datetime.now()
+    start_time = current_time - datetime.timedelta(hours=1)
+    end_time = current_time
 
-    # Summary for the last hour
-    #if prev_hour in connections_by_hour:
-    hour_connections = connections_by_hour[prev_hour]
+    # Filter connections for the last hour
+    connected_to_configurable_host = []
+    received_from_configurable_host = []
+    for hour_key, connections in connections_by_hour.items():
+        for connection in connections:
+            conn_time, source, dest = connection
+            if start_time <= conn_time <= end_time:
+                if dest == configurable_host:
+                    connected_to_configurable_host.append(source)
+                if source == configurable_host:
+                    received_from_configurable_host.append(source)
 
-    connected_to_configurable_host = [dest for _, _, dest in hour_connections if _ == configurable_host]
 
-    # Get hostnames that received connections from a configurable host
-    received_from_configurable_host = [source for _, source, _ in hour_connections if _ == configurable_host]
+    # recent_hour_connections = [
+    #     (conn_time, source, dest) for hour_key, connections in connections_by_hour.items()
+    #     for conn_time, source, dest in connections if start_time <= conn_time <= end_time
+    # ]
 
-    # Get the hostname that generated the most connections
+    # # Extract relevant information from connections
+    # connected_to_configurable_host = [dest for _, _, dest in recent_hour_connections if _ == configurable_host]
+    # received_from_configurable_host = [source for _, source, _ in recent_hour_connections if _ == configurable_host]
+
+    # Determine the hostname with the most connections
     if connection_counts:
         most_connections_host = max(connection_counts, key=connection_counts.get)
 
-        print(f"Hourly Summary ({prev_hour} - {current_hour}):")
+        print(f"Hourly Summary ({start_time} - {end_time}):")
         print(f"Hostnames connected to '{configurable_host}': {connected_to_configurable_host}")
         print(f"Hostnames that received connections from '{configurable_host}': {received_from_configurable_host}")
-        print(
-            f"Hostname with most connections: {most_connections_host} ({connection_counts[most_connections_host]} connections)")
+        print(f"Hostname with most connections: {most_connections_host} ({connection_counts[most_connections_host]} connections)")
     else:
         print("No connections recorded yet.")
 
     # Schedule the next hourly summary
-    scheduler.enter(20, 1, generate_hourly_summary)
+    scheduler.enter(SCHEDULER_SECONDS_DELAY, 1, update_hourly_summaries, (scheduler,))
 
 
 if __name__ == '__main__':
     file_path = '../datasets/input-file-100002.txt'
-    host = 'Lynnsie'
 
     # Start a separate thread for processing the log file continuously
     log_processing_thread = threading.Thread(target=process_log_file, args=(file_path,))
@@ -106,11 +122,8 @@ if __name__ == '__main__':
     # Initialize summary scheduler
     scheduler = sched.scheduler(time.time, time.sleep)
 
-    # # Start processing the log file continuously
-    # process_log_file(file_path)
-
     # Schedule the first hourly summary
-    scheduler.enter(0, 1, generate_hourly_summary, (scheduler,))
+    scheduler.enter(0, 1, update_hourly_summaries, (scheduler,))
 
     # Run the scheduler indefinitely
     scheduler.run()
