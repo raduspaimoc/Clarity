@@ -8,11 +8,12 @@ from utils import timestamp_ms_to_sec, STANDARD_FORMAT_VALUES_IN_FILE
 
 SCHEDULER_SECONDS_DELAY = 30
 
-# Global variables
+# Global variables (use a sliding window approach)
 connections_by_hour = defaultdict(list)
-incoming_connections = defaultdict(set)
-outgoing_connections = defaultdict(set)
-connection_counts = defaultdict(int)
+incoming_connections = defaultdict(lambda: defaultdict(set))  # Nested defaultdict of sets
+outgoing_connections = defaultdict(lambda: defaultdict(set))  # Nested defaultdict of sets
+connection_counts = defaultdict(lambda: defaultdict(int))  # Nested defaultdict for connection counts
+
 
 
 def parse_log_line(line) -> tuple:
@@ -37,14 +38,16 @@ def update_hourly_stats(connection: tuple):
 
             # Update connections by hour
             connections_by_hour[hour_key].append((connection_time, source_host, destination_host))
+            if len(connections_by_hour[hour_key]) > 3600:  # Limit to one hour of data (assuming 1 connection per second)
+                connections_by_hour[hour_key].pop(0)
 
             # Update incoming and outgoing connections
-            incoming_connections[destination_host].add(source_host)
-            outgoing_connections[source_host].add(destination_host)
+            incoming_connections[hour_key][destination_host].add(source_host)
+            outgoing_connections[hour_key][source_host].add(destination_host)
 
             # Update connection counts
-            connection_counts[source_host] += 1
-            connection_counts[destination_host] += 1
+            connection_counts[hour_key][source_host] += 1
+            connection_counts[hour_key][destination_host] += 1
 
 
 def process_log_file(file_path: str):
@@ -73,37 +76,31 @@ def update_hourly_summaries(scheduler, configurable_host='Lynnsie'):
     current_time = datetime.datetime.now()
     start_time = current_time - datetime.timedelta(hours=1)
     end_time = current_time
+    start_hour_key = start_time.strftime('%Y-%m-%d %H')
 
     # Filter connections for the last hour
     connected_to_configurable_host = []
     received_from_configurable_host = []
-    for hour_key, connections in connections_by_hour.items():
-        for connection in connections:
-            conn_time, source, dest = connection
-            if start_time <= conn_time <= end_time:
-                if dest == configurable_host:
-                    connected_to_configurable_host.append(source)
-                if source == configurable_host:
-                    received_from_configurable_host.append(source)
+    # Aggregate statistics within the last hour (sliding window)
+    for hour_key in list(connections_by_hour.keys()):
+        if hour_key >= start_hour_key:
+            for conn_time, source, dest in connections_by_hour[hour_key]:
+                if start_time <= conn_time <= end_time:
+                    if dest == configurable_host:
+                        connected_to_configurable_host.append(source)
+                    if source == configurable_host:
+                        received_from_configurable_host.append(dest)
 
-
-    # recent_hour_connections = [
-    #     (conn_time, source, dest) for hour_key, connections in connections_by_hour.items()
-    #     for conn_time, source, dest in connections if start_time <= conn_time <= end_time
-    # ]
-
-    # # Extract relevant information from connections
-    # connected_to_configurable_host = [dest for _, _, dest in recent_hour_connections if _ == configurable_host]
-    # received_from_configurable_host = [source for _, source, _ in recent_hour_connections if _ == configurable_host]
-
-    # Determine the hostname with the most connections
+    # Determine the hostname with the most connections within the last hour
     if connection_counts:
-        most_connections_host = max(connection_counts, key=connection_counts.get)
+        last_hour_counts = connection_counts[start_hour_key]
+        most_connections_host = max(last_hour_counts, key=last_hour_counts.get)
 
         print(f"Hourly Summary ({start_time} - {end_time}):")
         print(f"Hostnames connected to '{configurable_host}': {connected_to_configurable_host}")
         print(f"Hostnames that received connections from '{configurable_host}': {received_from_configurable_host}")
-        print(f"Hostname with most connections: {most_connections_host} ({connection_counts[most_connections_host]} connections)")
+        print(
+            f"Hostname with most connections: {most_connections_host} ({last_hour_counts[most_connections_host]} connections)")
     else:
         print("No connections recorded yet.")
 
