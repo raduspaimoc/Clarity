@@ -81,24 +81,45 @@ def update_hourly_summaries(scheduler, configurable_host='Lynnsie'):
     # Filter connections for the last hour
     connected_to_configurable_host = []
     received_from_configurable_host = []
-    # Aggregate statistics within the last hour (sliding window)
-    for hour_key in list(connections_by_hour.keys()):
+    # # Aggregate statistics within the last hour (sliding window)
+    # for hour_key in list(connections_by_hour.keys()):
+    #     if hour_key >= start_hour_key:
+    #         for conn_time, source, dest in connections_by_hour[hour_key]:
+    #             if start_time <= conn_time <= end_time:
+    #                 if dest == configurable_host:
+    #                     connected_to_configurable_host.append(source)
+    #                 if source == configurable_host:
+    #                     received_from_configurable_host.append(dest)
+    #
+    # # Determine the hostname with the most connections within the last hour
+    # if connection_counts:
+    #     last_hour_counts = connection_counts[start_hour_key]
+    #     most_connections_host = max(last_hour_counts, key=last_hour_counts.get)
+    #
+    #     print(f"Hourly Summary ({start_time} - {end_time}):")
+    #     print(f"Hostnames connected to '{configurable_host}': {connected_to_configurable_host}")
+    #     print(f"Hostnames that received connections from '{configurable_host}': {received_from_configurable_host}")
+    #     print(
+    #         f"Hostname with most connections: {most_connections_host} ({last_hour_counts[most_connections_host]} connections)")
+    # else:
+    #     print("No connections recorded yet.")
+    # Aggregate connection counts within the last hour
+    last_hour_counts = defaultdict(int)
+    for hour_key in list(connection_counts.keys()):
         if hour_key >= start_hour_key:
-            for conn_time, source, dest in connections_by_hour[hour_key]:
-                if start_time <= conn_time <= end_time:
-                    if dest == configurable_host:
-                        connected_to_configurable_host.append(source)
-                    if source == configurable_host:
-                        received_from_configurable_host.append(dest)
+            for host, count in connection_counts[hour_key].items():
+                last_hour_counts[host] += count
 
     # Determine the hostname with the most connections within the last hour
-    if connection_counts:
-        last_hour_counts = connection_counts[start_hour_key]
+    if last_hour_counts:
         most_connections_host = max(last_hour_counts, key=last_hour_counts.get)
 
+        # Print the hourly summary
         print(f"Hourly Summary ({start_time} - {end_time}):")
-        print(f"Hostnames connected to '{configurable_host}': {connected_to_configurable_host}")
-        print(f"Hostnames that received connections from '{configurable_host}': {received_from_configurable_host}")
+        print(
+            f"Hostnames connected to '{configurable_host}': {incoming_connections[start_hour_key][configurable_host]}")
+        print(
+            f"Hostnames that received connections from '{configurable_host}': {outgoing_connections[start_hour_key][configurable_host]}")
         print(
             f"Hostname with most connections: {most_connections_host} ({last_hour_counts[most_connections_host]} connections)")
     else:
