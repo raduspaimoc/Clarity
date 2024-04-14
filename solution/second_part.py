@@ -26,7 +26,7 @@ logs_file_name = 'second_part.log'
 logger = logging.getLogger()
 
 
-SCHEDULER_SECONDS_DELAY = 30
+SCHEDULER_SECONDS_DELAY = 3600
 DEFAULT_HOST = 'Lynnsie'
 
 # Global variables (use a sliding window approach)

@@ -1,9 +1,12 @@
 import os
 import logging
 
+DEFAULT_HOST = 'Lynnsie'
+DEFAULT_FILE_PATH = '../datasets/input-file-10000.txt'
+DEFAULT_INIT_DATETIME = '2019-08-12 22:00:04.351000'
+DEFAULT_END_DATETIME = '2019-08-13 21:59:58.341000'
 STANDARD_FORMAT_VALUES_IN_FILE = 3
 EMPTY_CONNECTION = "*EMPTY*"
-
 STANDARD_LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 
 

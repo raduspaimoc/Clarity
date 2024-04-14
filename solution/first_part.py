@@ -2,10 +2,17 @@ import os
 import datetime
 
 from utils import timestamp_ms_to_sec, create_logger
-from utils import STANDARD_FORMAT_VALUES_IN_FILE, EMPTY_CONNECTION
+from utils import (
+    STANDARD_FORMAT_VALUES_IN_FILE,
+    EMPTY_CONNECTION,
+    DEFAULT_FILE_PATH,
+    DEFAULT_HOST,
+    DEFAULT_INIT_DATETIME,
+    DEFAULT_END_DATETIME
+)
 
 DEFAULT_LOGS_DIR = 'logs'
-DEFAULT_LOGS_FILE_NAME = 'first_part'
+DEFAULT_LOGS_FILE_NAME = 'first_part.log'
 
 def filter_connection(host: str,
                      init_datetime: datetime.datetime,
@@ -58,10 +65,13 @@ def print_hosts_list(host: str, hosts: list):
 if __name__ == '__main__':
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = '../datasets/input-file-10000.txt'
-    init_datetime = datetime.datetime(year=2019, month=8, day=12) # In file: ('2019-08-12 22:00:04.351000')
-    end_datetime = datetime.datetime(year=2024, month=8, day=14)  # In file: ('2019-08-13 21:59:58.341000')
-    host = 'Lynnsie'
+
+    file_path = os.environ.get("FILE_PATH", DEFAULT_FILE_PATH)
+    init_datetime = datetime.datetime.strptime(
+        os.environ.get("INIT_DATETIME", DEFAULT_INIT_DATETIME), "%Y-%m-%d %H:%M:%S.%f") # In file: ('2019-08-12 22:00:04.351000')
+    end_datetime = datetime.datetime.strptime(
+        os.environ.get("END_DATETIME", DEFAULT_END_DATETIME), "%Y-%m-%d %H:%M:%S.%f")  # In file: ('2019-08-13 21:59:58.341000')
+    host = os.environ.get("HOST", DEFAULT_HOST)
 
     logs_path = os.path.join(script_dir, "..\\" + DEFAULT_LOGS_DIR)
     os.makedirs(logs_path, exist_ok=True)
@@ -72,12 +82,5 @@ if __name__ == '__main__':
     logger.info(f"Connections log file: {file_path} read succesfully.")
     print_hosts_list(host, connected_hosts)
 
-    # TODO
-    # 1. Create logger here - ok
-    # 2. Create .env read params from env
-    # 3. Create separated main function that receives params
-    # 4. Create test
-    # 5. Clean entries generator
-    # 6. Create readme.
 
 
